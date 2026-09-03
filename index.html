@@ -4,12 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Space Tracker</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #0b0e14;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center;
+    }
+    #canvas {
+      display: block;
+      width: 100vw;
+      height: 70vh;
+      background: #000;
+    }
+    #output {
+      padding: 15px;
+    }
+  </style>
 </head>
 <body>
   <h1>Space Tracking Project</h1>
+  
+  <canvas id="canvas"></canvas>
+  <div id="output"></div>
 
   <script src="solar_system.js"></script>
   <script src="comets.js"></script>
   <script src="satellite_tracker.js"></script>
 </body>
 </html>
+
