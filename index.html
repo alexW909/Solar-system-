@@ -13,9 +13,10 @@
       text-align: center;
     }
     svg {
-      width: 380px;
-      height: 380px;
-      max-width: 100%;
+      width: 100vw;
+      height: 80vh;
+      max-width: 600px;
+      max-height: 600px;
       background: #000;
       margin: 0 auto;
       display: block;
@@ -25,14 +26,19 @@
 <body>
   <h1>Space Tracking Project</h1>
   
-  <svg id="orbitSvg">
+  <svg id="orbitSvg" viewBox="0 0 380 380">
     <g id="stars"></g>
+    <g id="orbits"></g>
+    <g id="planets"></g>
+    <g id="comets"></g>
+    <g id="satellites"></g>
+    <g id="labels"></g>
   </svg>
   
   <div id="output"></div>
 
-  <script src="solar_system.js" defer></script>
-  <script src="comets.js" defer></script>
-  <script src="satellite_tracker.js" defer></script>
+  <script src="solar_system.js"></script>
+  <script src="comets.js"></script>
+  <script src="satellite_tracker.js"></script>
 </body>
 </html>
