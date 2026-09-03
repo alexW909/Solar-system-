@@ -12,21 +12,23 @@
       font-family: system-ui, -apple-system, sans-serif;
       text-align: center;
     }
-    #canvas {
-      display: block;
-      width: 100vw;
-      height: 70vh;
+    svg {
+      width: 380px;
+      height: 380px;
+      max-width: 100%;
       background: #000;
-    }
-    #output {
-      padding: 15px;
+      margin: 0 auto;
+      display: block;
     }
   </style>
 </head>
 <body>
   <h1>Space Tracking Project</h1>
   
-  <canvas id="canvas"></canvas>
+  <svg id="orbitSvg">
+    <g id="stars"></g>
+  </svg>
+  
   <div id="output"></div>
 
   <script src="solar_system.js"></script>
@@ -34,4 +36,3 @@
   <script src="satellite_tracker.js"></script>
 </body>
 </html>
-
