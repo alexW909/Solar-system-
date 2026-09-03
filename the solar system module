@@ -1,0 +1,469 @@
+(function(){
+  var planets = [
+    {name:"Mercury", a:0.38710, e:0.20563, period:87.969, L0:252.25084, peri:77.45779, incl:7.00, color:"#C9C6BE",
+      facts:{"Diameter":"4,879 km","Mass":"0.055 x Earth","Gravity":"3.7 m/s2","Day length":"58.6 Earth days","Moons":"0","Orbit period":"88 Earth days"}},
+    {name:"Venus",   a:0.72333, e:0.00677, period:224.701, L0:181.97973, peri:131.60261, incl:3.39, color:"#F0C48C",
+      facts:{"Diameter":"12,104 km","Mass":"0.815 x Earth","Gravity":"8.87 m/s2","Day length":"243 Earth days","Moons":"0","Orbit period":"225 Earth days"}},
+    {name:"Earth",   a:1.00000, e:0.01671, period:365.256, L0:100.46435, peri:102.94719, incl:0.00, color:"#5CA8F0",
+      facts:{"Diameter":"12,742 km","Mass":"5.97 x 10^24 kg","Gravity":"9.8 m/s2","Day length":"24 hours","Moons":"1","Orbit period":"365.25 days"}},
+    {name:"Mars",    a:1.52368, e:0.09340, period:686.980, L0:355.45332, peri:336.04084, incl:1.85, color:"#E0764A",
+      facts:{"Diameter":"6,779 km","Mass":"0.107 x Earth","Gravity":"3.7 m/s2","Day length":"24.6 hours","Moons":"2","Orbit period":"687 Earth days"}},
+    {name:"Jupiter", a:5.20260, e:0.04849, period:4332.589, L0:34.40438, peri:14.72847, incl:1.30, color:"#E8C48A",
+      facts:{"Diameter":"139,820 km","Mass":"318 x Earth","Gravity":"24.8 m/s2","Day length":"9.9 hours","Moons":"95","Orbit period":"11.9 years"}},
+    {name:"Saturn",  a:9.55491, e:0.05551, period:10759.22, L0:49.94432, peri:92.59887, incl:2.49, color:"#F2D9A0",
+      facts:{"Diameter":"116,460 km","Mass":"95 x Earth","Gravity":"10.4 m/s2","Day length":"10.7 hours","Moons":"146","Orbit period":"29.5 years"}},
+    {name:"Uranus",  a:19.21845, e:0.04630, period:30685.4, L0:313.23218, peri:170.96424, incl:0.77, color:"#8FE0DA",
+      facts:{"Diameter":"50,724 km","Mass":"14.5 x Earth","Gravity":"8.9 m/s2","Day length":"17.2 hours","Moons":"28","Orbit period":"84 years"}},
+    {name:"Neptune", a:30.11039, e:0.00899, period:60189.0, L0:304.88003, peri:44.97135, incl:1.77, color:"#6C8EF0",
+      facts:{"Diameter":"49,244 km","Mass":"17.1 x Earth","Gravity":"11.2 m/s2","Day length":"16.1 hours","Moons":"16","Orbit period":"165 years"}}
+  ];
+  var sunFacts = {"Diameter":"1,392,700 km","Mass":"1.99 x 10^30 kg","Surface temp":"5,500 C","Age":"4.6 billion years","Type":"G-type star","Planets":"8"};
+
+  window.SolarMechanics = {
+    aMin: 0.387, aMax: 30.11,
+    norm: function(deg){ deg = deg % 360; if(deg < 0) deg += 360; return deg; },
+    solveKepler: function(Mrad, e){
+      var E = Mrad;
+      for(var i=0;i<10;i++){
+        E = E - (E - e*Math.sin(E) - Mrad) / (1 - e*Math.cos(E));
+      }
+      return E;
+    },
+    computePosition: function(p, daysSinceEpoch){
+      var n = 360 / p.period;
+      var M = this.norm(p.L0 + n * daysSinceEpoch - p.peri) * Math.PI / 180;
+      var E = this.solveKepler(M, p.e);
+      var r = p.a * (1 - p.e * Math.cos(E));
+      var nu = Math.atan2(Math.sqrt(1 - p.e*p.e) * Math.sin(E), Math.cos(E) - p.e);
+      var angle = nu + p.peri * Math.PI / 180;
+      return { r: r, angle: angle };
+    },
+    EPOCH: Date.UTC(2000,0,1,12,0,0)
+  };
+
+  var M = window.SolarMechanics;
+  var aMin = M.aMin, aMax = M.aMax, rMin = 24, rMax = 168;
+  var pxPerAu = (rMax - rMin) / (aMax - aMin);
+  function scaleR(auVal){
+    var t = (Math.sqrt(auVal) - Math.sqrt(aMin)) / (Math.sqrt(aMax) - Math.sqrt(aMin));
+    return rMin + t * (rMax - rMin);
+  }
+
+  var cx = 190, cy = 190;
+  var svg = document.getElementById("orbitSvg");
+  var starsG = document.getElementById("stars");
+  for(var i=0;i<70;i++){
+    var sx = Math.random()*380, sy = Math.random()*380;
+    var d0 = Math.hypot(sx-cx, sy-cy);
+    if(d0 < 175) continue;
+    var st = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    st.setAttribute("cx", sx); st.setAttribute("cy", sy);
+    st.setAttribute("r", Math.random()*0.9 + 0.3);
+    st.setAttribute("fill", "#ffffff");
+    st.setAttribute("opacity", (Math.random()*0.5 + 0.25).toFixed(2));
+    starsG.appendChild(st);
+  }
+
+  var svgRings = document.getElementById("orbitRings");
+  var svgDots = document.getElementById("planetDots");
+  var svgLabels = document.getElementById("planetLabels");
+  var svgTrails = document.getElementById("trails");
+  var sunGlowEl = document.getElementById("sunGlowEl");
+  var dotEls = {}, labelEls = {}, trailEls = {}, ringEls = {};
+
+  var infoCard = document.getElementById("infoCard");
+  var infoName = document.getElementById("infoName");
+  var infoSwatch = document.getElementById("infoSwatch");
+  var infoGrid = document.getElementById("infoGrid");
+  var infoClose = document.getElementById("infoClose");
+  var followBtn = document.getElementById("followBtn");
+  var followLabel = document.getElementById("followLabel");
+  var modeHint = document.getElementById("modeHint");
+
+  var currentInfoPlanet = null;
+  var followPlanet = null;
+  var compareMode = false;
+  var compareSel = [];
+  var tiltOn = false;
+  var tiltAngle = 55 * Math.PI/180;
+  var zExagg = 16;
+
+  function factRow(k, v){
+    var row = document.createElement("div");
+    row.innerHTML = '<span class="k">'+k+'</span>'+v;
+    return row;
+  }
+
+  function showInfo(name, color, facts){
+    if(compareMode) return;
+    currentInfoPlanet = name;
+    infoName.textContent = name;
+    infoSwatch.style.background = color;
+    infoGrid.innerHTML = "";
+    Object.keys(facts).forEach(function(k){ infoGrid.appendChild(factRow(k, facts[k])); });
+    followBtn.style.display = name === "Sun" ? "none" : "block";
+    followLabel.textContent = (followPlanet === name) ? "Stop following" : "Follow";
+    infoCard.style.display = "block";
+    document.getElementById("compareCard").style.display = "none";
+  }
+  infoClose.addEventListener("click", function(){ infoCard.style.display = "none"; currentInfoPlanet = null; });
+  followBtn.addEventListener("click", function(){
+    if(followPlanet === currentInfoPlanet){
+      followPlanet = null;
+      followLabel.textContent = "Follow";
+    } else {
+      followPlanet = currentInfoPlanet;
+      followLabel.textContent = "Stop following";
+    }
+  });
+
+  var compareCard = document.getElementById("compareCard");
+  var compareGrid = document.getElementById("compareGrid");
+  var alignBtn = document.getElementById("alignBtn");
+  var alignResult = document.getElementById("alignResult");
+  var compareBtn = document.getElementById("compareBtn");
+
+  compareBtn.addEventListener("click", function(){
+    compareMode = !compareMode;
+    compareBtn.classList.toggle("toggled", compareMode);
+    compareSel = [];
+    alignResult.style.display = "none";
+    infoCard.style.display = "none";
+    if(compareMode){
+      modeHint.style.display = "block";
+      modeHint.textContent = "Tap two planets to compare";
+      compareCard.style.display = "none";
+    } else {
+      modeHint.style.display = "none";
+      compareCard.style.display = "none";
+    }
+  });
+  document.getElementById("compareClose").addEventListener("click", function(){
+    compareCard.style.display = "none";
+    compareSel = [];
+  });
+
+  function renderCompare(){
+    if(compareSel.length < 2) return;
+    var p1 = compareSel[0], p2 = compareSel[1];
+    compareGrid.innerHTML = "";
+    var h1 = document.createElement("div"); h1.style.color = p1.color; h1.style.fontWeight = "500"; h1.style.marginBottom = "6px"; h1.textContent = p1.name;
+    var h2 = document.createElement("div"); h2.style.color = p2.color; h2.style.fontWeight = "500"; h2.style.marginBottom = "6px"; h2.textContent = p2.name;
+    compareGrid.appendChild(h1); compareGrid.appendChild(h2);
+    Object.keys(p1.facts).forEach(function(k){
+      compareGrid.appendChild(factRow(k, p1.facts[k]));
+      compareGrid.appendChild(factRow(k, p2.facts[k]));
+    });
+    compareCard.style.display = "block";
+    alignResult.style.display = "none";
+    modeHint.style.display = "none";
+  }
+
+  alignBtn.addEventListener("click", function(){
+    if(compareSel.length < 2) return;
+    var p1 = compareSel[0], p2 = compareSel[1];
+    var daysSinceEpoch = (simTime - M.EPOCH) / 86400000;
+    var step = 2, maxDays = 80*365.25;
+    var found = null;
+    for(var d = daysSinceEpoch; d < daysSinceEpoch + maxDays; d += step){
+      var pos1 = M.computePosition(p1, d);
+      var pos2 = M.computePosition(p2, d);
+      var diff = pos1.angle - pos2.angle;
+      diff = ((diff + Math.PI) % (2*Math.PI)) - Math.PI;
+      var sep = Math.abs(diff) * 180/Math.PI;
+      if(sep < 8){ found = d; break; }
+    }
+    if(found !== null){
+      simTime = M.EPOCH + found * 86400000;
+      playing = false;
+      playLabel.textContent = "Play";
+      var d1 = new Date(simTime);
+      alignResult.textContent = "Aligned around " + d1.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+      alignResult.style.display = "block";
+      var fitR = Math.max(scaleR(p1.a), scaleR(p2.a)) * 1.3;
+      vb = {x: cx-fitR, y: cy-fitR, w: fitR*2, h: fitR*2};
+      applyViewBox();
+    } else {
+      alignResult.textContent = "No close alignment found in next 80 years";
+      alignResult.style.display = "block";
+    }
+  });
+
+  document.getElementById("sunDot").addEventListener("click", function(){
+    if(compareMode) return;
+    showInfo("Sun", "#FFD98A", sunFacts);
+  });
+
+  var tiltBtn = document.getElementById("tiltBtn");
+  tiltBtn.addEventListener("click", function(){
+    tiltOn = !tiltOn;
+    tiltBtn.classList.toggle("toggled", tiltOn);
+    Object.keys(ringEls).forEach(function(name){
+      var p = planets.filter(function(x){return x.name===name;})[0];
+      var r = scaleR(p.a);
+      ringEls[name].setAttribute("ry", tiltOn ? (r*Math.cos(tiltAngle)) : r);
+    });
+    sunGlowEl.setAttribute("ry", tiltOn ? 22*Math.cos(tiltAngle) : 22);
+  });
+
+  var copyBtn = document.getElementById("copyBtn");
+  var copyLabel = document.getElementById("copyLabel");
+  copyBtn.addEventListener("click", function(){
+    var lines = ["Solar system snapshot", formatDate(simTime), ""];
+    planets.forEach(function(p){
+      var pos = M.computePosition(p, (simTime-M.EPOCH)/86400000);
+      lines.push(p.name + ": " + pos.r.toFixed(2) + " AU, heliocentric longitude " + (M.norm(pos.angle*180/Math.PI)).toFixed(1) + " deg");
+    });
+    var text = lines.join("\n");
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        copyLabel.textContent = "Copied";
+        setTimeout(function(){ copyLabel.textContent = "Copy snapshot"; }, 1500);
+      }).catch(function(){
+        copyLabel.textContent = "Failed";
+        setTimeout(function(){ copyLabel.textContent = "Copy snapshot"; }, 1500);
+      });
+    }
+  });
+
+  planets.forEach(function(p){
+    var r = scaleR(p.a);
+    var ring = document.createElementNS("http://www.w3.org/2000/svg","ellipse");
+    ring.setAttribute("cx", cx); ring.setAttribute("cy", cy);
+    ring.setAttribute("rx", r); ring.setAttribute("ry", r);
+    ring.setAttribute("fill", "none");
+    ring.setAttribute("stroke", "rgba(255,255,255,0.14)");
+    ring.setAttribute("stroke-width", "0.5");
+    svgRings.appendChild(ring);
+    ringEls[p.name] = ring;
+
+    var trail = document.createElementNS("http://www.w3.org/2000/svg","path");
+    trail.setAttribute("fill", "none");
+    trail.setAttribute("stroke", p.color);
+    trail.setAttribute("stroke-width", "1");
+    trail.setAttribute("opacity", "0.55");
+    svgTrails.appendChild(trail);
+    trailEls[p.name] = trail;
+
+    var dotR = (p.name === "Jupiter" || p.name === "Saturn") ? 4.5 : 2.6;
+    var hit = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    hit.setAttribute("r", dotR + 6);
+    hit.setAttribute("fill", "transparent");
+    hit.style.cursor = "pointer";
+    hit.addEventListener("click", (function(pp){ return function(){
+      if(compareMode){
+        if(compareSel.indexOf(pp) === -1){
+          compareSel.push(pp);
+          if(compareSel.length > 2) compareSel.shift();
+        }
+        if(compareSel.length === 1){
+          modeHint.style.display = "block";
+          modeHint.textContent = "Tap one more to compare with " + compareSel[0].name;
+        } else if(compareSel.length === 2){
+          renderCompare();
+        }
+      } else {
+        showInfo(pp.name, pp.color, pp.facts);
+      }
+    }; })(p));
+    svgDots.appendChild(hit);
+
+    var dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    dot.setAttribute("r", dotR);
+    dot.setAttribute("fill", p.color);
+    dot.style.pointerEvents = "none";
+    svgDots.appendChild(dot);
+    dotEls[p.name] = {dot:dot, hit:hit};
+
+    var label = document.createElementNS("http://www.w3.org/2000/svg","text");
+    label.setAttribute("font-size", "8.5");
+    label.setAttribute("font-family", "ui-monospace, Menlo, monospace");
+    label.setAttribute("letter-spacing", "0.05em");
+    label.setAttribute("fill", "rgba(255,255,255,0.85)");
+    label.style.pointerEvents = "none";
+    label.textContent = p.name.toUpperCase();
+    svgLabels.appendChild(label);
+    labelEls[p.name] = label;
+  });
+
+  var speedSteps = [
+    {mult: 1, label: "Real time"},
+    {mult: 3600, label: "1 hr/sec"},
+    {mult: 86400, label: "1 day/sec"},
+    {mult: 604800, label: "1 week/sec"},
+    {mult: 2592000, label: "1 month/sec"},
+    {mult: 31536000, label: "1 year/sec"},
+    {mult: 315360000, label: "10 yrs/sec"}
+  ];
+
+  var simTime = Date.now();
+  var playing = true;
+  var lastFrame = performance.now();
+  var speedInput = document.getElementById("speed");
+  var speedLabel = document.getElementById("speedLabel");
+  var clockEl = document.getElementById("clock");
+  var playBtn = document.getElementById("playBtn");
+  var playLabel = document.getElementById("playLabel");
+
+  function currentMult(){ return speedSteps[parseInt(speedInput.value, 10)].mult; }
+  function updateSpeedLabel(){ speedLabel.textContent = speedSteps[parseInt(speedInput.value, 10)].label; }
+  updateSpeedLabel();
+  speedInput.addEventListener("input", updateSpeedLabel);
+
+  playBtn.addEventListener("click", function(){
+    playing = !playing;
+    playLabel.textContent = playing ? "Pause" : "Play";
+    lastFrame = performance.now();
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    simTime = Date.now();
+    trailHist = {};
+    planets.forEach(function(p){ trailHist[p.name] = []; });
+  });
+
+  function formatDate(ms){
+    var d = new Date(ms);
+    return d.toLocaleString(undefined, { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  }
+
+  var trailHist = {};
+  planets.forEach(function(p){ trailHist[p.name] = []; });
+
+  function frame(now){
+    var dtReal = (now - lastFrame) / 1000;
+    lastFrame = now;
+    if(playing){
+      simTime += dtReal * currentMult() * 1000;
+    }
+    var daysSinceEpoch = (simTime - M.EPOCH) / 86400000;
+    var followX = cx, followY = cy;
+
+    planets.forEach(function(p){
+      var pos = M.computePosition(p, daysSinceEpoch);
+      var rPx = scaleR(pos.r);
+      var x = cx + rPx * Math.cos(pos.angle);
+      var y = cy - rPx * Math.sin(pos.angle);
+      if(tiltOn){
+        var zAu = pos.r * Math.sin(pos.angle) * Math.sin(p.incl * Math.PI/180);
+        var zPx = zAu * pxPerAu * zExagg;
+        y = cy + (y - cy) * Math.cos(tiltAngle) - zPx * Math.sin(tiltAngle);
+      }
+      dotEls[p.name].dot.setAttribute("cx", x);
+      dotEls[p.name].dot.setAttribute("cy", y);
+      dotEls[p.name].hit.setAttribute("cx", x);
+      dotEls[p.name].hit.setAttribute("cy", y);
+
+      if(p.name === followPlanet){ followX = x; followY = y; }
+
+      var lx = x, ly = y;
+      var dx2 = x - cx, dy2 = y - cy;
+      var dist = Math.hypot(dx2, dy2) || 1;
+      lx += (dx2/dist) * 10 + 4;
+      ly += (dy2/dist) * 10;
+      labelEls[p.name].setAttribute("x", lx);
+      labelEls[p.name].setAttribute("y", ly);
+
+      var hist = trailHist[p.name];
+      hist.push([x,y]);
+      if(hist.length > 18) hist.shift();
+      if(hist.length > 1){
+        var dstr = "M" + hist[0][0].toFixed(1) + "," + hist[0][1].toFixed(1);
+        for(var i=1;i<hist.length;i++){
+          dstr += " L" + hist[i][0].toFixed(1) + "," + hist[i][1].toFixed(1);
+        }
+        trailEls[p.name].setAttribute("d", dstr);
+      }
+    });
+
+    if(followPlanet){
+      vb.x = followX - vb.w/2;
+      vb.y = followY - vb.h/2;
+      applyViewBox();
+    }
+
+    clockEl.textContent = formatDate(simTime);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  var vb = {x:0, y:0, w:380, h:380};
+  function applyViewBox(){
+    svg.setAttribute("viewBox", vb.x.toFixed(2) + " " + vb.y.toFixed(2) + " " + vb.w.toFixed(2) + " " + vb.h.toFixed(2));
+  }
+  function zoomAt(px, py, factor){
+    var newW = Math.max(60, Math.min(600, vb.w * factor));
+    var newH = newW;
+    var fx = (px - vb.x) / vb.w;
+    var fy = (py - vb.y) / vb.h;
+    vb.x = px - fx * newW;
+    vb.y = py - fy * newH;
+    vb.w = newW; vb.h = newH;
+    applyViewBox();
+  }
+  function svgPoint(clientX, clientY){
+    var rect = svg.getBoundingClientRect();
+    var scale = vb.w / rect.width;
+    return { x: vb.x + (clientX - rect.left) * scale, y: vb.y + (clientY - rect.top) * scale };
+  }
+
+  svg.addEventListener("wheel", function(ev){
+    ev.preventDefault();
+    var p = svgPoint(ev.clientX, ev.clientY);
+    zoomAt(p.x, p.y, ev.deltaY > 0 ? 1.12 : 0.89);
+  }, {passive:false});
+
+  document.getElementById("zoomIn").addEventListener("click", function(){ zoomAt(vb.x+vb.w/2, vb.y+vb.h/2, 0.8); });
+  document.getElementById("zoomOut").addEventListener("click", function(){ zoomAt(vb.x+vb.w/2, vb.y+vb.h/2, 1.25); });
+  document.getElementById("zoomReset").addEventListener("click", function(){ followPlanet = null; followLabel.textContent = "Follow"; vb = {x:0,y:0,w:380,h:380}; applyViewBox(); });
+
+  var dragging = false, lastX = 0, lastY = 0;
+  var pinchDist = null;
+
+  svg.addEventListener("pointerdown", function(ev){
+    if(ev.target.tagName === "circle" && ev.target.style.cursor === "pointer") return;
+    followPlanet = null;
+    dragging = true;
+    lastX = ev.clientX; lastY = ev.clientY;
+    svg.style.cursor = "grabbing";
+    svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener("pointermove", function(ev){
+    if(!dragging) return;
+    var rect = svg.getBoundingClientRect();
+    var scale = vb.w / rect.width;
+    vb.x -= (ev.clientX - lastX) * scale;
+    vb.y -= (ev.clientY - lastY) * scale;
+    lastX = ev.clientX; lastY = ev.clientY;
+    applyViewBox();
+  });
+  svg.addEventListener("pointerup", function(){ dragging = false; svg.style.cursor = "grab"; });
+  svg.addEventListener("pointercancel", function(){ dragging = false; svg.style.cursor = "grab"; });
+
+  svg.addEventListener("touchstart", function(ev){
+    if(ev.touches.length === 2){
+      dragging = false;
+      pinchDist = Math.hypot(
+        ev.touches[0].clientX - ev.touches[1].clientX,
+        ev.touches[0].clientY - ev.touches[1].clientY
+      );
+    }
+  }, {passive:true});
+  svg.addEventListener("touchmove", function(ev){
+    if(ev.touches.length === 2 && pinchDist){
+      ev.preventDefault();
+      var newDist = Math.hypot(
+        ev.touches[0].clientX - ev.touches[1].clientX,
+        ev.touches[0].clientY - ev.touches[1].clientY
+      );
+      var midX = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
+      var midY = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
+      var p = svgPoint(midX, midY);
+      zoomAt(p.x, p.y, pinchDist / newDist);
+      pinchDist = newDist;
+    }
+  }, {passive:false});
+  svg.addEventListener("touchend", function(ev){
+    if(ev.touches.length < 2) pinchDist = null;
+  }, {passive:true});
+})();
